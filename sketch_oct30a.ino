@@ -24,20 +24,12 @@ void loop()
 {
   if (Serial.available() > 0)
   {
-    int x = Serial.parseInt();
-    if (x == 1)
+    int command = Serial.parseInt();
+    if (command == 1)
     {
-      Serial.println("ARM()...");
-      mini.arm();
-    }
-    else if (x == 2)
-    {
-      Serial.println("DISARM()...");
-      mini.disarm();
-    }
-    else
-    {
-      Serial.println("Error command...");
+      float battery = mini.get_battery_status();
+      Serial.println(battery);
     }
   }
 }
+1

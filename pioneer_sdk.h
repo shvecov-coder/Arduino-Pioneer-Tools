@@ -54,7 +54,7 @@ class Pioneer
 	      udp.beginPacket("192.168.4.1", 8001);
 	      udp.write(buf, len);
 	      udp.endPacket();
-
+  
         lastSent = millis();
       }
     }
@@ -64,6 +64,7 @@ class Pioneer
       this->port = port;
       this->ip = String(ip);
       this->is_connected = false;
+      this->mavlink_timeout = 5000;
 
       TaskHandle_t xHandle = NULL;
       xTaskCreate(heartbeat_thread, "heartbeat_thread", 4096, NULL, 1, &xHandle);
@@ -87,10 +88,58 @@ class Pioneer
       send_command_long(MAV_CMD_COMPONENT_ARM_DISARM, 0, 0, 0, 0, 0, 0, 0, 0);
     }
 
+    float get_battery_status()
+    {
+    // Команда для запроса информации о батарее
+      mavlink_message_t msg;
+      mavlink_command_long_t cmd;
+      uint8_t buf[MAVLINK_MAX_PACKET_LEN];
+
+      memset(&cmd, 0, sizeof(cmd));
+      cmd.target_system = 0;
+      cmd.target_component = 0;
+      cmd.command = MAV_CMD_REQUEST_MESSAGE;
+      cmd.param1 = 147;
+
+      static uint32_t lastSent = millis();
+      while (millis() - lastSent < this->mavlink_timeout)
+      {
+        mavlink_msg_command_long_encode(1, 1, &msg, &cmd);
+        uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
+	      udp.beginPacket("192.168.4.1", 8001);
+	      udp.write(buf, len);
+	      udp.endPacket();
+
+        memset(&msg, 0, sizeof(msg));
+        memset(&buf, 0, sizeof(buf));
+
+        int packetSize = udp.parsePacket();
+        if (!packetSize) continue;
+        udp.read(buf, MAVLINK_MAX_PACKET_LEN);
+        mavlink_status_t status;
+
+        for (int i = 0; i < packetSize; i++)
+        {
+          if (mavlink_parse_char(MAVLINK_COMM_0, buf[i], &msg, &status))
+          {
+            switch (msg.msgid)
+            {
+              case MAVLINK_MSG_ID_BATTERY_STATUS:
+                mavlink_battery_status_t battary_status;
+                mavlink_msg_battery_status_decode(&msg, &battary_status);
+                return float(battary_status.voltages[0] / 100.0);
+              default:
+                break;
+            }
+          }
+        }
+      }   
+    }
   private:
     int port;
     String ip;
     bool is_connected;
+    int mavlink_timeout;
 };
 
 #endif /* PIONEERSDK */
