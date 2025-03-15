@@ -6,7 +6,7 @@
 #include <MAVLink.h>
 
 WiFiUDP udp;
-//test
+
 void send_command_long(uint16_t command,
                        uint8_t confirmation,
                        float param1,
